@@ -20,7 +20,7 @@ Version 1
 
 @v1.route('/curr',methods=['GET'])
 def get_curr_biz_day():
-	return get_bank_holiday()
+	return get_bank_holiday(today)
 
 
 @v1.route('/prev',methods=['GET'])
@@ -40,7 +40,7 @@ Version 2
 """
 @v2.route('/curr',methods=['GET'])
 def get_curr_biz_day():
-	return jsonify({'Current business date':'2020-12-18'})
+	return get_bank_holiday(today)
 
 @v2.route('/prev',methods=['GET'])
 def get_prev_biz_day():
@@ -81,11 +81,19 @@ def fetch_bank_holiday_file():
 		print("Error: Connection timed out.\n",e)
 	sys.exit()
 
-def get_bank_holiday():
+
+"""
+This really checks if variable 'today' is a bank holiday.
+for python3 use: def get_bank_holiday( target_date: datetime.date ):
+"""
+def get_bank_holiday( target_date):
+
+	###target_date = datetime.date.today()
+    ###today=datetime.date(2017,4,17)
 	data = fetch_bank_holiday_file()
 	ical = icalendar.Calendar.from_ical(data)
 	for component in ical.walk():
-		if component.name =="VEVENT" and component.get('dtstart').dt == today:
+		if component.name =="VEVENT" and component.get('dtstart').dt == target_date:
 			result = component.get('summary')
 			return jsonify({'Current date is {}'.format(result):"{}".format(today)})
 	"""Check other logic e.g. is today Monday - Friday? """
