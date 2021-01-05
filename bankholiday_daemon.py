@@ -1,9 +1,11 @@
 from flask import Flask
 from flask import Blueprint
 from flask import jsonify
-import datetime, sys
+import sys
 import icalendar
 import requests
+import calendar
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 app = Flask(__name__)
@@ -11,25 +13,66 @@ app = Flask(__name__)
 """Global scope"""
 v1=Blueprint("version1","version1")
 v2=Blueprint("version2","version2")
-##today=datetime.date.today()
-today=datetime.date(2017,4,17)
+##today=date.today()
+today=date(2017,01,01)
+
 
 """
 Version 1
+
+What are the questions?
+
+what should bankholiday check do?
+
+is today a bankholiday? yes or no?
+
+is today a working day?
+
+is tomorrow a working day?
+
+was yesterday a working day?
+
+when is the next working day?
+
+when is the previous working day?
+
+
+is current day a bankholiday?
+	if yes 
+   is today a weekend?
+	   if weekend 
+	   is today saturday? 
+		   if saturday set offset to 2
+		   otherwise set offset to 1
+	   return weekend
+   return weekday
+if no
+   is today a weekday or weekend?
+   if weekday return normal weekday.
+   or return weekend.
+
 """
+
 
 @v1.route('/curr',methods=['GET'])
 def get_curr_biz_day():
-	return get_bank_holiday(today)
-
-
-@v1.route('/prev',methods=['GET'])
-def get_prev_biz_day():
-	return jsonify({'Previous business date':'20201217'})
+	return check_bank_holiday(today)
 
 @v1.route('/last',methods=['GET'])
 def get_last_biz_day():
-	return jsonify({'Last business date':'20201219'})
+	return check_bank_holiday(today-timedelta(offset))
+
+@v1.route('/next',methods=['GET'])
+def get_next_biz_day():
+	if today.weekday() not in range(calendar.MONDAY,calendar.FRIDAY):
+		if today.weekday() == calendar.SATURDAY:
+			offset = 2
+		else:
+			offset = 1
+	result = check_bank_holiday( today+timedelta(offset) )
+	if result is not None:
+		return jsonify({'+>':result})
+	return jsonify({'->':today+timedelta(offset)})
 
 @v1.route('/', methods=['GET'])
 def index():
@@ -42,13 +85,13 @@ Version 2
 def get_curr_biz_day():
 	return get_bank_holiday(today)
 
-@v2.route('/prev',methods=['GET'])
-def get_prev_biz_day():
-	return jsonify({'Previous business date':'2020-12-17'})
-
 @v2.route('/last',methods=['GET'])
 def get_last_biz_day():
-	return jsonify({'Last business date':'2020-12-19'})
+	return jsonify({'last business date':'2020-12-17'})
+
+@v2.route('/next',methods=['GET'])
+def get_next_biz_day():
+	return jsonify({'next business date':'2020-12-19'})
 
 @v2.route('/', methods=['GET'])
 def index():
@@ -86,24 +129,28 @@ def fetch_bank_holiday_file():
 This really checks if variable 'today' is a bank holiday.
 for python3 use: def get_bank_holiday( target_date: datetime.date ):
 """
-def get_bank_holiday( target_date):
+def check_bank_holiday( target_date):
 
 	###target_date = datetime.date.today()
     ###today=datetime.date(2017,4,17)
 	data = fetch_bank_holiday_file()
 	ical = icalendar.Calendar.from_ical(data)
+	result = None
 	for component in ical.walk():
 		if component.name =="VEVENT" and component.get('dtstart').dt == target_date:
 			result = component.get('summary')
-			return jsonify({'Current date is {}'.format(result):"{}".format(today)})
-	"""Check other logic e.g. is today Monday - Friday? """
-	return jsonify({'Current business date':"{}".format(today)})
+			return result
+	return result
+	"""
+			return jsonify({"Current date is {} bank holiday".format(result.encode('ascii','ignore').decode('ascii')) : "{}".format(target_date)})
+	return jsonify({'Current business date':"{}".format(target_date)})
+	"""
 
 def main():
 		
 	app.register_blueprint(v1,url_prefix="/v1")
 	app.register_blueprint(v2,url_prefix="/v2")
-	app.register_blueprint(v2,url_prefix="/")
+	app.register_blueprint(v1,url_prefix="/")
 	app.run(host='0.0.0.0', port='3000')
 
 if __name__ == '__main__':
